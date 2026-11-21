@@ -6,6 +6,7 @@ import os
 # Импортируем наши функции
 from utils.data_loader import load_data
 from utils.returns import calculate_average_daily_returns
+from utils.risk import calculate_average_volatility, calculate_max_drawdown
 
 # Настройка страницы
 st.set_page_config(
@@ -80,9 +81,88 @@ elif choice == "Сравнение двух монет":
     st.title("Сравнение двух монет")
     st.info("Этот раздел находится в разработке. Здесь будет график сравнения двух выбранных монет (Яна).")
 
+
 elif choice == "Оценка рискованности":
-    st.title("Оценка рискованности")
-    st.info("Этот раздел находится в разработке. Здесь будут рассчитаны волатильность и просадки (Ксюша).")
+    st.title("Оценка рискованности криптовалют")
+
+    st.markdown("""
+    **Средняя волатильность** показывает, насколько сильно
+    колеблется дневная доходность криптовалюты.
+
+    **Максимальная просадка** показывает наибольшее падение
+    цены от предыдущего максимума за период наблюдения.
+    """)
+
+    # Выбор периода расчёта волатильности
+    window = st.selectbox(
+        "Окно волатильности (наблюдений)",
+        [7, 30, 90],
+        index=1
+    )
+
+    # Расчёт показателей
+    volatility = calculate_average_volatility(df, window) * 100
+    drawdown = calculate_max_drawdown(df) * 100
+
+    # Объединяем результаты в одну таблицу
+    risk_table = (
+        pd.DataFrame({
+            "Средняя волатильность (%)": volatility,
+            "Максимальная просадка (%)": drawdown,
+        })
+        .rename_axis("Монета")
+        .reset_index()
+        .sort_values(
+            "Средняя волатильность (%)",
+            ascending=False
+        )
+    )
+
+    # График волатильности
+    st.subheader("Средняя дневная волатильность")
+
+    fig_volatility = px.bar(
+        risk_table,
+        x="Монета",
+        y="Средняя волатильность (%)",
+        color="Средняя волатильность (%)",
+        color_continuous_scale="OrRd",
+        title=f"Средняя волатильность (окно {window} дней)"
+    )
+
+    fig_volatility.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig_volatility, width="stretch")
+
+    # График максимальных просадок
+    st.subheader("Максимальная просадка")
+
+    fig_drawdown = px.bar(
+        risk_table.sort_values(
+            "Максимальная просадка (%)",
+            ascending=False
+        ),
+        x="Монета",
+        y="Максимальная просадка (%)",
+        color="Максимальная просадка (%)",
+        color_continuous_scale="Reds",
+        title="Максимальная просадка по монетам"
+    )
+
+    fig_drawdown.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig_drawdown, width="stretch")
+
+    # Таблица с результатами
+    st.subheader("Таблица показателей рискованности")
+
+    st.dataframe(
+        risk_table.style.format({
+            "Средняя волатильность (%)": "{:.2f}%",
+            "Максимальная просадка (%)": "{:.2f}%"
+        }),
+        width="stretch",
+        hide_index=True
+    )
+
 
 elif choice == "«Что если бы я вложил…»":
     st.title("Что если бы я вложил…")
