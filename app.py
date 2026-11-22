@@ -8,9 +8,15 @@ import logging
 # Импорт функций
 from utils.data_loader import load_data
 from utils.returns import calculate_average_daily_returns
-from utils.risk import calculate_average_volatility, calculate_max_drawdown
 from utils.compare import compare_coins
 from utils.invest import calculate, get_price
+from views.overview import show_overview
+from utils.risk import (
+    calculate_daily_volatility,
+    calculate_max_drawdown,
+    select_custom_period,
+    get_risk_top5,
+)
 
 # Настройка логирования, чтобы записывать действия программы в файл и выводить в консоль
 logging.basicConfig(
@@ -32,6 +38,7 @@ st.sidebar.title("Навигация по проекту")
 st.sidebar.markdown("Выберите интересующий раздел анализа:")
 
 menu_options = [
+    "Обзор данных",
     "Сравнение доходности",
     "Сравнение двух монет",
     "Оценка рискованности",
@@ -59,8 +66,11 @@ if df is None:
     )
     st.stop()  # Останавливаем выполнение, если нет данных
 
-# Отображение выбранного пункта
-if choice == "Сравнение доходности":
+# --- Отображение выбранного пункта ---
+if choice == "Обзор данных":
+    show_overview(df)
+
+elif choice == "Сравнение доходности":
     st.title("Сравнение доходности криптовалют")
     st.markdown("""
     На этом графике показана **средняя дневная доходность** каждой монеты за весь период наблюдений.
@@ -376,51 +386,86 @@ elif choice == "Сравнение двух монет":
 elif choice == "Оценка рискованности":
     st.title("Оценка рискованности криптовалют")
 
-    st.markdown("""
-    **Средняя волатильность** показывает, насколько сильно
-    колеблется дневная доходность криптовалюты.
+    min_date = pd.Timestamp(df["Date"].min()).date()
+    max_date = pd.Timestamp(df["Date"].max()).date()
 
-    **Максимальная просадка** показывает наибольшее падение
-    цены от предыдущего максимума за период наблюдения.
-    """)
+    last_common_date = pd.Timestamp(
+        df.groupby("Coin_Name")["Date"].max().min()
+    )
+    default_year = last_common_date.year - 1
+    default_start = pd.Timestamp(default_year, 1, 1).date()
+    default_end = pd.Timestamp(default_year, 12, 31).date()
+    if not (min_date <= default_start < default_end <= max_date):
+        default_start, default_end = min_date, max_date
 
-    # Выбор периода расчёта волатильности
-    window = st.selectbox("Окно волатильности (наблюдений)", [7, 30, 90], index=1)
-
-    # Расчёт показателей
-    volatility = calculate_average_volatility(df, window) * 100
-    drawdown = calculate_max_drawdown(df) * 100
-
-    # Объединяем результаты в одну таблицу
-    risk_table = (
-        pd.DataFrame(
-            {
-                "Средняя волатильность (%)": volatility,
-                "Максимальная просадка (%)": drawdown,
-            }
+    col_start, col_end = st.columns(2)
+    with col_start:
+        start_date = st.date_input(
+            "Начало периода",
+            value=default_start,
+            min_value=min_date,
+            max_value=max_date,
+            key="risk_start_date",
         )
+    with col_end:
+        end_date = st.date_input(
+            "Конец периода",
+            value=default_end,
+            min_value=min_date,
+            max_value=max_date,
+            key="risk_end_date",
+        )
+
+    if start_date >= end_date:
+        st.warning("Дата начала должна быть раньше даты окончания периода")
+        st.stop()
+
+    risk_df, actual_start, actual_end, excluded = select_custom_period(
+        df, start_date, end_date
+    )
+    if risk_df.empty or risk_df["Date"].nunique() < 3:
+        st.warning(
+            "Недостаточно общих дат для расчёта показателей. "
+            "Выберите более длинный период."
+        )
+        st.stop()
+
+    if excluded:
+        with st.expander(
+            f"Почему не включены некоторые монеты ({len(excluded)})?"
+        ):
+            st.write(
+                "Для сопоставимого расчёта оставлены монеты, у которых "
+                "имеются цены на обеих фактических границах выбранного периода. "
+                "Не включены: " + ", ".join(excluded) + "."
+            )
+
+    volatility = calculate_daily_volatility(risk_df) * 100
+    drawdown = calculate_max_drawdown(risk_df) * 100
+    risk_table = (
+        pd.DataFrame({
+            "Дневная волатильность (%)": volatility,
+            "Максимальная просадка (%)": drawdown,
+        })
         .rename_axis("Монета")
         .reset_index()
-        .sort_values("Средняя волатильность (%)", ascending=False)
+        .dropna(subset=["Дневная волатильность (%)", "Максимальная просадка (%)"])
+        .sort_values("Дневная волатильность (%)", ascending=False)
     )
-
-    # График волатильности
-    st.subheader("Средняя дневная волатильность")
+    if risk_table.empty:
+        st.warning("Недостаточно последовательных дневных данных для расчёта волатильности")
+        st.stop()
 
     fig_volatility = px.bar(
         risk_table,
         x="Монета",
-        y="Средняя волатильность (%)",
-        color="Средняя волатильность (%)",
+        y="Дневная волатильность (%)",
+        color="Дневная волатильность (%)",
         color_continuous_scale="OrRd",
-        title=f"Средняя волатильность (окно {window} дней)",
+        title="Дневная волатильность за выбранный период",
     )
-
     fig_volatility.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig_volatility, width="stretch")
-
-    # График максимальных просадок
-    st.subheader("Максимальная просадка")
 
     fig_drawdown = px.bar(
         risk_table.sort_values("Максимальная просадка (%)", ascending=False),
@@ -428,26 +473,59 @@ elif choice == "Оценка рискованности":
         y="Максимальная просадка (%)",
         color="Максимальная просадка (%)",
         color_continuous_scale="Reds",
-        title="Максимальная просадка по монетам",
+        title="Максимальная просадка за выбранный период",
     )
-
     fig_drawdown.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig_drawdown, width="stretch")
 
-    # Таблица с результатами
     st.subheader("Таблица показателей рискованности")
-
     st.dataframe(
-        risk_table.style.format(
-            {
-                "Средняя волатильность (%)": "{:.2f}%",
-                "Максимальная просадка (%)": "{:.2f}%",
-            }
-        ),
+        risk_table.style.format({
+            "Дневная волатильность (%)": "{:.2f}%",
+            "Максимальная просадка (%)": "{:.2f}%",
+        }),
         width="stretch",
         hide_index=True,
     )
 
+    top5 = get_risk_top5(risk_table)
+    st.subheader("Топ-5 криптовалют по показателям рискованности")
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Наименьшая волатильность**")
+        st.dataframe(
+            top5["Топ-5 монет с наименьшей волатильностью"].style.format({
+                "Дневная волатильность (%)": "{:.2f}%"
+            }),
+            hide_index=True, width="stretch",
+        )
+    with right:
+        st.markdown("**Наибольшая волатильность**")
+        st.dataframe(
+            top5["Топ-5 монет с наибольшей волатильностью"].style.format({
+                "Дневная волатильность (%)": "{:.2f}%"
+            }),
+            hide_index=True, width="stretch",
+        )
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Наименьшая максимальная просадка**")
+        st.dataframe(
+            top5["Топ-5 монет с наименьшей просадкой"].style.format({
+                "Максимальная просадка (%)": "{:.2f}%"
+            }),
+            hide_index=True, width="stretch",
+        )
+    with right:
+        st.markdown("**Наибольшая максимальная просадка**")
+        st.dataframe(
+            top5["Топ-5 монет с наибольшей просадкой"].style.format({
+                "Максимальная просадка (%)": "{:.2f}%"
+            }),
+            hide_index=True, width="stretch",
+        )
 
 elif choice == "«Что если бы я вложил…»":
     st.title("Что если бы я вложил…")
@@ -495,4 +573,4 @@ elif choice == "«Что если бы я вложил…»":
 
 # Описанию внизу страницы
 st.sidebar.markdown("---")
-st.sidebar.caption("Команда 12: Настя, Яна, Ксюша, Асмик")
+st.sidebar.caption("Команда: Настя, Яна, Ксюша, Асмик")
