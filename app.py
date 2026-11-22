@@ -198,88 +198,128 @@ if choice == "Сравнение доходности":
 elif choice == "Сравнение двух монет":
     st.title("Сравнение двух монет")
     st.markdown("""
-    Выберите две монеты и период. График покажет, как изменилась бы стоимость 
-    **100$**, вложенных в каждую из них в первый день выбранного периода.
+    Выберите две монеты и период, чтобы увидеть, как изменилась бы стоимость **100$**, 
+    вложенных в начале периода. Ниже представлена таблица с расчетом прибыли и анализ 
+    взаимосвязи монет.
     """)
     
     # Выбор монет
     coins = sorted(df['Coin_Name'].unique())
     col1, col2 = st.columns(2)
     coin1 = col1.selectbox("Первая монета", coins, index=0)
+
     # По умолчанию выбираем вторую монету, чтобы они не совпадали
     default_idx = 1 if len(coins) > 1 else 0
     coin2 = col2.selectbox("Вторая монета", coins, index=default_idx) 
-    
+
+    # Проверка выбора монет
+    if coin1 == coin2:
+        st.warning("Пожалуйста, выберите две разные монеты для сравнения.")
+        st.stop() # Остановка программы, если выбраны одинаковые монеты
+        
     # Выбор дат
-    min_date = df['Date'].min().date()
-    max_date = df['Date'].max().date()
+    # Находим общий период, когда обе монеты существуют в датасете
+    df_c1 = df[df['Coin_Name'] == coin1]
+    df_c2 = df[df['Coin_Name'] == coin2]
+        
+    min_date = max(df_c1['Date'].min(), df_c2['Date'].min()).date()
+    max_date = min(df_c1['Date'].max(), df_c2['Date'].max()).date()
     
     col_d1, col_d2 = st.columns(2)
-    start_date = col_d1.date_input("Начало периода", min_date)
-    end_date = col_d2.date_input("Конец периода", max_date)
+    start_date = col_d1.date_input("Начало периода", min_date, min_value=min_date, max_value=max_date)
+    end_date = col_d2.date_input("Конец периода", max_date, min_value=min_date, max_value=max_date)
     
     if st.button("Построить график"):
-        try:
-            # Вызываем функцию сравнения
-            result, corr = compare_coins(
-                df, coin1, coin2, 
-                pd.to_datetime(start_date), 
-                pd.to_datetime(end_date)
-            )
+        if start_date >= end_date:
+            st.error("Дата начала должна быть раньше даты конца.")
+        else:  
+            try:
+                # Вызываем функцию сравнения
+                result, corr = compare_coins(
+                    df, coin1, coin2, 
+                    pd.to_datetime(start_date), 
+                    pd.to_datetime(end_date)
+                )
             
-            # Считаем рост за период
-            growth1 = result[coin1].iloc[-1] - 100
-            growth2 = result[coin2].iloc[-1] - 100
+                # Считаем рост за период
+                growth1_pct = result[coin1].iloc[-1] - 100
+                growth2_pct = result[coin2].iloc[-1] - 100
+
+                # Считаем конечную стоимость инвестиций (в долларах)
+                final_value_c1 = 100 + growth1_pct
+                final_value_c2 = 100 + growth2_pct
             
-            # Подготавливаем данные для Plotly (нужно перевести в "длинный" формат)
-            # Сейчас result имеет колонки [coin1, coin2] и индекс Date
-            plot_df = result.reset_index().melt(
-                id_vars='Date', 
-                var_name='Монета', 
-                value_name='Стоимость 100$'
-            )
-            
-            # Строим интерактивный график
-            fig = px.line(
-                plot_df, 
-                x='Date', 
-                y='Стоимость 100$', 
-                color='Монета',
-                title=f'Сравнение {coin1} и {coin2} (база 100)',
-                markers=True # Добавляем точки на линиях
-            )
-            fig.update_layout(hovermode="x unified")
-            
-            st.plotly_chart(fig, width='stretch')
-            
-            # Выводим результаты
-            st.markdown("### Результат анализа")
-            
-            # Подписи с процентами
-            m1, m2 = st.columns(2)
-            m1.metric(
-                label=f"Изменение {coin1} за период", 
-                value=f"{growth1:.1f}%"
-            )
-            m2.metric(
-                label=f"Изменение {coin2} за период", 
-                value=f"{growth2:.1f}%"
-            )
-            
-            # Вывод корреляции
-            st.write(f"**Коэффициент корреляции:** {corr:.2f}")
-            
-            if corr >= 0.7:
-                st.success("Монеты движутся почти синхронно.")
-            elif corr >= 0.3:
-                st.info("У монет есть умеренная связь.")
-            elif corr >= -0.3:
-                st.warning("Монеты движутся независимо друг от друга.")
-            else:
-                st.error("Монеты движутся в противоположных направлениях.")
-                
-        except Exception as e:
-            st.error(f"Ошибка: {e}")
+                # Подготавливаем данные для Plotly
+                plot_df = result.reset_index().rename(columns={'Date': 'Дата'})
+                plot_df = plot_df.melt(
+                    id_vars='Дата', 
+                    var_name='Монета', 
+                    value_name='Стоимость 100$'
+                )
+
+                # Задаем цвета для линий
+                color_map = {coin1: '#1f77b4', coin2: '#ff7f0e'}
+
+                # Строим интерактивный график
+                fig = px.line(
+                    plot_df, 
+                    x='Дата', 
+                    y='Стоимость 100$', 
+                    color='Монета',
+                    color_discrete_map=color_map,
+                    title=f'Динамика инвестиций 100$ в {coin1} и {coin2}',
+                    markers=False 
+                )
+                fig.update_layout(hovermode="x unified")
+                    
+                st.plotly_chart(fig, width='stretch')
+                    
+                # Выводим результаты
+                st.markdown("### Результат анализа")
+                    
+                # Метрики (проценты)
+                m1, m2 = st.columns(2)
+                m1.metric(label=f"Изменение {coin1}", value=f"{growth1_pct:.1f}%")
+                m2.metric(label=f"Изменение {coin2}", value=f"{growth2_pct:.1f}%")
+                    
+                # Строим таблицу с расшифровкой
+                st.markdown("#### Детализация инвестиций")
+                    
+                summary_data = {
+                    "Показатель": ["Начальная инвестиция", "Конечная стоимость", "Чистая прибыль/убыток", "Доходность"],
+                    coin1: ["100.00 $", f"{final_value_c1:.2f} $", f"{growth1_pct:.2f} $", f"{growth1_pct:.1f} %"],
+                    coin2: ["100.00 $", f"{final_value_c2:.2f} $", f"{growth2_pct:.2f} $", f"{growth2_pct:.1f} %"]
+                }
+                summary_df = pd.DataFrame(summary_data)
+                    
+                st.dataframe(summary_df, hide_index=True, width='stretch')
+
+                # Кнопка для скачивания таблицы
+                csv = summary_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Скачать в CSV",
+                    data=csv,
+                    file_name=f"Сравнение_{coin1}_{coin2}.csv",
+                    mime="text/csv",
+                    help="Нажмите, чтобы скачать результаты анализа в формате Excel"
+                )
+
+                # Вывод корреляции
+                st.markdown("#### Анализ взаимосвязи (Корреляция)")
+                st.write(f"Коэффициент корреляции за выбранный период: **{corr:.2f}**")
+                    
+                if corr >= 0.7:
+                    st.success("Монеты имеют схожую динамику. Обычно они растут и падают одновременно, поэтому инвестиции в обе не сильно снижают общий риск.")
+                elif corr >= 0.3:
+                    st.info("У монет есть умеренная связь. Активы часто повторяют движение друг друга, но могут двигаться и независимо.")
+                elif corr >= -0.3:
+                    st.warning("Монеты движутся независимо друг от друга. Это отличный вариант для диверсификации портфеля.")
+                else:
+                    st.error("Когда одна монета растет, другая часто падает. Это может помочь сбалансировать риски, если держать обе монеты в портфеле.")
+                        
+            except Exception as e:
+                st.error(f"Ошибка при построении: {e}")
+                logging.error(f"Ошибка при построении графика {coin1} и {coin2}: {e}")
 
 
 elif choice == "Оценка рискованности":
