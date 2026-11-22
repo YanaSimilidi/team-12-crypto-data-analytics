@@ -7,8 +7,4 @@ venv/
 *.log
 .pytest_cache/
 .agents/
-<<<<<<< HEAD
-.log
-=======
 .claude/
->>>>>>> origin/develop

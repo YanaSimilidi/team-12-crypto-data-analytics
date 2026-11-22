@@ -1,4 +1,3 @@
-
 import pandas as pd
 import pytest
 
@@ -42,9 +41,7 @@ def test_average_volatility():
 
     # Рассчитываем стандартное отклонение для двух окон
     # и находим их среднее значение
-    expected = (
-        returns.iloc[:2].std() + returns.iloc[1:].std()
-    ) / 2
+    expected = (returns.iloc[:2].std() + returns.iloc[1:].std()) / 2
 
     assert result["A"] == pytest.approx(expected)
 
