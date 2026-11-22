@@ -2,10 +2,9 @@
 import pandas as pd
 import pytest
 from utils.data_loader import load_data
-import os
 
 
-# Создадим временный CSV для теста, чтобы не зависеть от основного файла
+# Временный CSV для теста, чтобы не зависеть от основного файла
 @pytest.fixture
 def sample_csv(tmp_path):
     data = {
