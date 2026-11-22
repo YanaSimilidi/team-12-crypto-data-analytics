@@ -3,6 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def calculate_average_daily_returns(df: pd.DataFrame) -> pd.Series:
     """
     Рассчитывает среднюю дневную доходность для каждой монеты.

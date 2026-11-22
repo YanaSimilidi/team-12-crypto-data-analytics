@@ -473,7 +473,6 @@ elif choice == "«Что если бы я вложил…»":
             now_price = get_price(df, coin, last_date)
             total_now, profit = calculate(amount, buy_price, now_price)
 
-
             # Карточки с итогами расчёта
             col1, col2, col3 = st.columns(3)
             col1.metric("Вложено", f"{amount} USD")
