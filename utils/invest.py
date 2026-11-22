@@ -3,6 +3,7 @@
 from utils.data_loader import load_data
 
 
+# Считаем, сколько стоят вложения сейчас и прибыль в %
 def calculate(amount, buy_price, now_price):
     coins = amount / buy_price  # Какой долей монеты владеем
     total_now = coins * now_price  # Стоимость этой доли монеты сейчас в валюте
@@ -12,9 +13,13 @@ def calculate(amount, buy_price, now_price):
     return total_now, profit
 
 
+# Ищем в таблице стоимость выбранной монеты на выбранную дату
 def get_price(df, coin, date):
+    # Оставляем только строки выбранной монеты
     coin_rows = df[df["Coin_Name"] == coin]
+    # Из них оставляем строку с выбранной датой
     row = coin_rows[coin_rows["Date"] == date]
+    # Отдаем цену закрытия из этой строки
     return row["Close"].iloc[0]
 
 
@@ -22,10 +27,10 @@ if __name__ == "__main__":
     # Загружаем и очищаем таблицу с ценами (функция Насти)
     df = load_data("data/historical_crypto_data.csv")
     amount = 1000  # Кол-во вложенных денег
-    buy_price = get_price(df, "BTC", "2020-01-01")  # Цена BTC на 01.01.2020 из таблицы
-    now_price = get_price(
-        df, "BTC", "2026-06-03"
-    )  # Цена BTC на последний день в таблице
+    # Цена BTC на 01.01.2020 из таблицы
+    buy_price = get_price(df, "BTC", "2020-01-01")
+    # Цена BTC на последний день в таблице
+    now_price = get_price(df, "BTC", "2026-06-03")
 
     # Запустили ф-цию calculate с тремя числами и сложили результаты
     # в total_now, profit
