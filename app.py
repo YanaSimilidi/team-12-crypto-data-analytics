@@ -2,11 +2,23 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
+import logging
 
 # Импортируем наши функции
 from utils.data_loader import load_data
 from utils.returns import calculate_average_daily_returns
 from utils.risk import calculate_average_volatility, calculate_max_drawdown
+from utils.compare import compare_coins
+
+# Настраиваем логи чтобы записывать действия программы в файл и выводить в консоль
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 # Настройка страницы
 st.set_page_config(
@@ -79,7 +91,89 @@ if choice == "Сравнение доходности":
 
 elif choice == "Сравнение двух монет":
     st.title("Сравнение двух монет")
-    st.info("Этот раздел находится в разработке. Здесь будет график сравнения двух выбранных монет (Яна).")
+    st.markdown("""
+    Выберите две монеты и период. График покажет, как изменилась бы стоимость 
+    **100$**, вложенных в каждую из них в первый день выбранного периода.
+    """)
+    
+    # Выбор монет
+    coins = sorted(df['Coin_Name'].unique())
+    col1, col2 = st.columns(2)
+    coin1 = col1.selectbox("Первая монета", coins, index=0)
+    # По умолчанию выбираем вторую монету, чтобы они не совпадали
+    default_idx = 1 if len(coins) > 1 else 0
+    coin2 = col2.selectbox("Вторая монета", coins, index=default_idx) 
+    
+    # Выбор дат
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
+    
+    col_d1, col_d2 = st.columns(2)
+    start_date = col_d1.date_input("Начало периода", min_date)
+    end_date = col_d2.date_input("Конец периода", max_date)
+    
+    if st.button("Построить график"):
+        try:
+            # Вызываем функцию сравнения
+            result, corr = compare_coins(
+                df, coin1, coin2, 
+                pd.to_datetime(start_date), 
+                pd.to_datetime(end_date)
+            )
+            
+            # Считаем рост за период
+            growth1 = result[coin1].iloc[-1] - 100
+            growth2 = result[coin2].iloc[-1] - 100
+            
+            # Подготавливаем данные для Plotly (нужно перевести в "длинный" формат)
+            # Сейчас result имеет колонки [coin1, coin2] и индекс Date
+            plot_df = result.reset_index().melt(
+                id_vars='Date', 
+                var_name='Монета', 
+                value_name='Стоимость 100$'
+            )
+            
+            # Строим интерактивный график
+            fig = px.line(
+                plot_df, 
+                x='Date', 
+                y='Стоимость 100$', 
+                color='Монета',
+                title=f'Сравнение {coin1} и {coin2} (база 100)',
+                markers=True # Добавляем точки на линиях
+            )
+            fig.update_layout(hovermode="x unified")
+            
+            st.plotly_chart(fig, width='stretch')
+            
+            # Выводим результаты
+            st.markdown("### Результат анализа")
+            
+            # Подписи с процентами
+            m1, m2 = st.columns(2)
+            m1.metric(
+                label=f"Изменение {coin1} за период", 
+                value=f"{growth1:.1f}%"
+            )
+            m2.metric(
+                label=f"Изменение {coin2} за период", 
+                value=f"{growth2:.1f}%"
+            )
+            
+            # Вывод корреляции
+            st.write(f"**Коэффициент корреляции:** {corr:.2f}")
+            
+            if corr >= 0.7:
+                st.success("Монеты движутся почти синхронно.")
+            elif corr >= 0.3:
+                st.info("У монет есть умеренная связь.")
+            elif corr >= -0.3:
+                st.warning("Монеты движутся независимо друг от друга.")
+            else:
+                st.error("Монеты движутся в противоположных направлениях.")
+                
+        except Exception as e:
+            st.error(f"Ошибка: {e}")
 
 
 elif choice == "Оценка рискованности":
