@@ -473,6 +473,13 @@ elif choice == "«Что если бы я вложил…»":
             now_price = get_price(df, coin, last_date)
             total_now, profit = calculate(amount, buy_price, now_price)
 
+
+            # Карточки с итогами расчёта
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Вложено", f"{amount} USD")
+            col2.metric("Сейчас", f"{round(total_now, 2)} USD")
+            col3.metric("Прибыль", f"{round(profit, 2)}%", delta=f"{round(profit, 2)}%")
+
             if profit >= 0:
                 st.success(
                     f"Вложив {amount} USD, сейчас у вас было бы "
