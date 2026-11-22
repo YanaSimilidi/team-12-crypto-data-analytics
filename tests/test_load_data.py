@@ -2,7 +2,6 @@
 import pandas as pd
 import pytest
 from utils.data_loader import load_data
-import os
 
 
 # Временный CSV для теста, чтобы не зависеть от основного файла
