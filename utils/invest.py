@@ -19,25 +19,28 @@ def get_price(df, coin, date):
     return row["Close"].iloc[0]
 
 
-# Загружаем и очищаем таблицу с ценами (функция Насти)
-df = load_data("data/historical_crypto_data.csv")
-amount = 1000  # Кол-во вложенных денег
-buy_price = get_price(df, "BTC", "2020-01-01")  # Цена BTC на 01.01.2020 из таблицы
-now_price = get_price(df, "BTC", "2026-06-03")  # Цена BTC на последний день в таблице
+if __name__ == "__main__":
+    # Загружаем и очищаем таблицу с ценами (функция Насти)
+    df = load_data("data/historical_crypto_data.csv")
+    amount = 1000  # Кол-во вложенных денег
+    buy_price = get_price(df, "BTC", "2020-01-01")  # Цена BTC на 01.01.2020 из таблицы
+    now_price = get_price(
+        df, "BTC", "2026-06-03"
+    )  # Цена BTC на последний день в таблице
 
-# Запустили ф-цию calculate с тремя числами и сложили результаты
-# в total_now, profit
-total_now, profit = calculate(amount, buy_price, now_price)
+    # Запустили ф-цию calculate с тремя числами и сложили результаты
+    # в total_now, profit
+    total_now, profit = calculate(amount, buy_price, now_price)
 
-if profit >= 0:
-    print(
-        f"Вложив {amount}$, "
-        f"сейчас у вас было бы {round(total_now, 2)}$. "
-        f"Прибыль (+{round(profit, 2)}%) "
-    )
-else:
-    print(
-        f"Вложив {amount}$, "
-        f"сейчас у вас было бы {round(total_now, 2)}$. "
-        f"Убыток ({round(profit, 2)}%) "
-    )
+    if profit >= 0:
+        print(
+            f"Вложив {amount}$, "
+            f"сейчас у вас было бы {round(total_now, 2)}$. "
+            f"Прибыль (+{round(profit, 2)}%) "
+        )
+    else:
+        print(
+            f"Вложив {amount}$, "
+            f"сейчас у вас было бы {round(total_now, 2)}$. "
+            f"Убыток ({round(profit, 2)}%) "
+        )
