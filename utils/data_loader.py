@@ -1,4 +1,7 @@
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def load_data(path: str) -> pd.DataFrame:
@@ -9,22 +12,49 @@ def load_data(path: str) -> pd.DataFrame:
     - Удаляет строки с нулевыми или пустыми ценами.
     - Переименовывает 'UNI7083' в 'UNI'.
     """
-    df = pd.read_csv(path)
+    
+    # Логируем начало работы
+    logger.info(f"Начало загрузки данных из файла: {path}")
+    
+    try:
+        df = pd.read_csv(path)
+    except FileNotFoundError:
+        logger.error(f"Ошибка: Файл не найден по пути {path}")
+        raise  # Пробрасываем ошибку дальше, чтобы Streamlit её показал
+    except Exception as e:
+        logger.error(f"Ошибка при чтении CSV файла: {e}")
+        raise
+
+    # Запоминаем исходное количество строк
+    initial_rows = len(df)
+    logger.info(f"Данные успешно загружены. Исходное количество строк: {initial_rows}")
 
     # 1. Преобразование даты
     df["Date"] = pd.to_datetime(df["Date"])
+    logger.debug("Столбец 'Date' преобразован в формат datetime.")
 
     # 2. Очистка от нулевых и пустых цен (включая проблему SHIB)
-    # Оставляем только строки, где все ключевые цены > 0 и не пустые
     price_columns = ["Open", "High", "Low", "Close"]
     for col in price_columns:
-        df = df[df[col] > 0]  # Это также удалит NaN, так как NaN > 0 -> False
+        rows_before_drop = len(df)
+        
+        df = df[df[col] > 0]  # Удаляет нули и NaN
         df = df.dropna(subset=[col])
+        
+        rows_dropped = rows_before_drop - len(df)
+        if rows_dropped > 0:
+            logger.info(f"Очистка: удалено {rows_dropped} строк с некорректным значением в '{col}'.")
 
     # 3. Переименование монеты
     df["Coin_Name"] = df["Coin_Name"].replace("UNI7083", "UNI")
+    logger.debug("Переименование монеты UNI7083 -> UNI выполнено.")
 
-    # Опционально: можно сбросить индекс после удаления строк
+    # Сброс индекса
     df = df.reset_index(drop=True)
+
+    # Логируем итог
+    final_rows = len(df)
+    total_dropped = initial_rows - final_rows
+    logger.info(f"Загрузка и очистка завершены. Итоговое количество строк: {final_rows}. Всего удалено: {total_dropped}.")
 
     return df
