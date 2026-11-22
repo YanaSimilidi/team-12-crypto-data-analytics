@@ -29,6 +29,8 @@ st.set_page_config(
 )
 
 # Отображение бокового меню
+st.sidebar.title("Анализ криптовалют")
+st.sidebar.markdown("---")
 st.sidebar.title("Навигация по проекту")
 st.sidebar.markdown("Выберите интересующий раздел анализа:")
 
@@ -120,15 +122,13 @@ if choice == "Сравнение доходности":
                 st.metric(
                     label=" Аутсайдер", 
                     value=worst_coin['Монета'], 
-                    delta=f"{worst_coin['Средняя доходность (%)']:.3f}% в день",
-                    delta_color="inverse"
+                    delta=f"{worst_coin['Средняя доходность (%)']:.3f}% в день"
                 )
             with col3:
                 # Общая информация
                 st.metric(
                     label=" Дней в анализе",
                     value=f"{len(df_filtered['Date'].unique())} дн.",
-                    delta="Выбранный период"
                 )
 
             st.markdown("---")
@@ -442,6 +442,6 @@ elif choice == "«Что если бы я вложил…»":
             # Цены нет: монеты ещё не было или в этот день нет данных
             st.warning("На эту дату нет цены этой монеты. Выберите другую дату.")
 
-# Добавим красивый футер в самом низу страницы
+# Описанию внизу страницы
 st.sidebar.markdown("---")
 st.sidebar.caption("Команда 12: Настя, Яна, Ксюша, Асмик")
