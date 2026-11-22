@@ -469,7 +469,6 @@ elif choice == "Оценка рискованности":
 
     fig_drawdown = px.bar(
         risk_table.sort_values("Максимальная просадка (%)", ascending=False),
-        risk_table.sort_values("Максимальная просадка (%)", ascending=False),
         x="Монета",
         y="Максимальная просадка (%)",
         color="Максимальная просадка (%)",
@@ -486,7 +485,6 @@ elif choice == "Оценка рискованности":
             "Максимальная просадка (%)": "{:.2f}%",
         }),
         width="stretch",
-        hide_index=True,
         hide_index=True,
     )
 
