@@ -1,4 +1,4 @@
-from invest import calculate
+from utils.invest import calculate
 
 
 # Проверяет ф-цию правильно ли она считает деньги и прибыль
