@@ -10,6 +10,7 @@ from utils.data_loader import load_data
 from utils.returns import calculate_average_daily_returns
 from utils.risk import calculate_average_volatility, calculate_max_drawdown
 from utils.compare import compare_coins
+from utils.invest import calculate, get_price
 
 # Настройка логирования, чтобы записывать действия программы в файл и выводить в консоль
 logging.basicConfig(
@@ -365,7 +366,41 @@ elif choice == "Оценка рискованности":
 
 elif choice == "«Что если бы я вложил…»":
     st.title("Что если бы я вложил…")
-    st.info("Этот раздел находится в разработке. Здесь будет калькулятор инвестиций (Асмик).")
+    # Список всех монет по алфавиту для выбора
+    coins = sorted(df["Coin_Name"].unique())
+    # Выпадающий список: пользователь выбирает монету
+    coin = st.selectbox("Выберите монету", coins)
+    # Самая ранняя и самая поздняя дата в таблице
+    min_date = df["Date"].min().date()
+    max_date = df["Date"].max().date()
+    # Календарь: пользователь выбирает дату покупки
+    buy_date = st.date_input("Дата покупки", min_date)
+    # Поле для суммы вложения (не меньше 1$)
+    amount = st.number_input("Сумма вложения, $", min_value=1.0, value=1000.0)
+    # Последняя дата, на которую есть цена этой монеты
+    # (у MATIC данные заканчиваются раньше, в марте 2025)
+    last_date = df[df["Coin_Name"] == coin]["Date"].max()
+
+    if st.button("Посчитать"):
+        try:
+            # Берём из таблицы цену в день покупки и цену «сейчас»
+            buy_price = get_price(df, coin, pd.to_datetime(buy_date))
+            now_price = get_price(df, coin, last_date)
+            total_now, profit = calculate(amount, buy_price, now_price)
+
+            if profit >= 0:
+                st.success(
+                    f"Вложив {amount} USD, сейчас у вас было бы "
+                    f"{round(total_now, 2)} USD. Прибыль +{round(profit, 2)}%"
+                )
+            else:
+                st.error(
+                    f"Вложив {amount} USD, сейчас у вас было бы "
+                    f"{round(total_now, 2)} USD. Убыток {round(profit, 2)}%"
+                )
+        except IndexError:
+            # Цены нет: монеты ещё не было или в этот день нет данных
+            st.warning("На эту дату нет цены этой монеты. Выберите другую дату.")
 
 # Добавим красивый футер в самом низу страницы
 st.sidebar.markdown("---")
