@@ -287,7 +287,7 @@ elif choice == "«Что если бы я вложил…»":
             col1, col2, col3 = st.columns(3)
             col1.metric("Вложено", f"{amount} USD")
             col2.metric("Сейчас", f"{round(total_now, 2)} USD")
-            col3.metric("Прибыль", f"{round(profit, 2)}%" , delta=f"{round(profit, 2)}%")
+            col3.metric("Прибыль", f"{round(profit, 2)}%", delta=f"{round(profit, 2)}%")
 
             if profit >= 0:
                 st.success(
