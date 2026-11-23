@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def filter_dates(df: pd.DataFrame, start, end) -> pd.DataFrame:
     """Отбирает записи за выбранный включительный интервал дат"""
     start_date = pd.Timestamp(start)
